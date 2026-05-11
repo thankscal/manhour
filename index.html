@@ -1,0 +1,403 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工時監督系統｜支援跨行標題（組別/日期分離）</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #eef2f9;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 24px 20px;
+            color: #1a2c3e;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a4a6e, #0e3a57);
+            padding: 24px 32px;
+            color: white;
+        }
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .toolbar {
+            background: #f8fafd;
+            padding: 20px 28px;
+            border-bottom: 1px solid #e3edf3;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 28px;
+            align-items: flex-end;
+        }
+        .upload-box, .filter-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .upload-box { flex: 2; min-width: 260px; }
+        .filter-box { flex: 1; min-width: 170px; }
+        label {
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #2c6e9e;
+            letter-spacing: 0.5px;
+        }
+        input[type="file"] {
+            border: 1px solid #cbdbe6;
+            border-radius: 48px;
+            padding: 8px 18px;
+            background: white;
+            font-size: 0.85rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        select {
+            border: 1px solid #cbdbe6;
+            border-radius: 48px;
+            padding: 8px 32px 8px 18px;
+            background: white;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        .info {
+            background: #eef4fa;
+            padding: 8px 28px;
+            font-size: 0.75rem;
+            color: #2c6288;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            border-bottom: 1px solid #e0ecf5;
+        }
+        .table-wrapper {
+            margin: 20px 28px 28px;
+            border-radius: 20px;
+            border: 1px solid #e3edf2;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            min-width: 1150px;
+        }
+        th {
+            background: #eef3fc;
+            color: #1b4d6e;
+            padding: 12px 8px;
+            border: 1px solid #d9e3ec;
+            text-align: center;
+            white-space: nowrap;
+        }
+        td {
+            padding: 8px 6px;
+            border: 1px solid #e4edf4;
+            text-align: right;
+            white-space: nowrap;
+        }
+        td:first-child, th:first-child { text-align: center; }
+        td:nth-child(2) { text-align: center; }
+        .bg-tsa { background-color: #D7E7DD; }
+        .bg-khh { background-color: #BFC4D7; }
+        .bg-mr  { background-color: #EFE6E1; }
+        .data-bg { background-color: #F8CBAD; }
+        .util-bg { background-color: #E2EFDA; }
+        .suggest-bg { background-color: #FFF3CD; }
+        .under-target { color: #d32f2f !important; font-weight: 800; }
+        .empty-message {
+            text-align: center;
+            padding: 58px 24px;
+            color: #6585a3;
+        }
+        .footer {
+            padding: 14px 28px 24px;
+            font-size: 0.7rem;
+            color: #5f7f9c;
+            border-top: 1px solid #e3edf2;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <h1>✈️ 工時監督系統｜跨行標題專用版</h1>
+            <p>適用「組別/日期」在第一行、「其他欄位」在第二行的特殊格式（如 CSV 範例）</p>
+        </div>
+        <div class="toolbar">
+            <div class="upload-box">
+                <label>📂 上傳 Excel / CSV (需含「綜整資訊」)</label>
+                <input type="file" id="excelUpload" accept=".xlsx, .xls, .csv">
+            </div>
+            <div class="filter-box">
+                <label>🏭 組別篩選</label>
+                <select id="groupSelect"></select>
+            </div>
+        </div>
+        <div class="info">
+            <span>🎯 利用率目標 ≥ 81.3%</span>
+            <span>📐 建議修改檢修工時 = (81.3% × 產能工時G) − 非計畫(I) − 支援(J)</span>
+            <span>🎨 組別底色：TSA淡綠 / KHH灰藍 / MR暖杏</span>
+        </div>
+        <div id="tableArea" class="table-wrapper">
+            <div class="empty-message">⬅️ 請上傳包含「綜整資訊」工作表的 Excel 檔案</div>
+        </div>
+        <div class="footer">
+            ※ 產能工時(G) = 直接人力(D)×8 + 加班(T) − 訓練時數(E)<br>
+            ※ 實際生產工時(K) = 實際檢修(H) + 非計畫(I) + 支援(J)<br>
+            ※ 若建議工時為負值，表示目前非計畫+支援工時已超過目標，應檢討非計畫工時。
+        </div>
+    </div>
+</div>
+
+<script>
+    const TARGET_UTIL = 0.813;
+    let allRecords = [];
+    let groupSet = new Set();
+
+    function toNumber(v) {
+        if (v === undefined || v === null || v === "") return 0;
+        if (typeof v === "number") return v;
+        let s = String(v).trim().replace(/[%,]/g, "");
+        let n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function formatDate(v) {
+        if (!v && v !== 0) return "";
+        if (typeof v === "number") {
+            try {
+                let d = XLSX.SSF.parse_date_code(v);
+                if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+                return String(v);
+            } catch(e) { return String(v); }
+        }
+        let s = String(v).trim();
+        if (s.match(/^\d{1,2}\/\d{1,2}/)) return s;
+        return s.split(" ")[0];
+    }
+
+    // 將儲存格中的換行符號取代為空格
+    function normalizeCell(cell) {
+        if (cell === undefined || cell === null) return "";
+        let str = String(cell).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+        return str;
+    }
+
+    // 解析工作表（支援第一行為組別/日期，第二行為其餘欄位標題）
+    function parseSheet(worksheet) {
+        if (!worksheet) throw new Error("找不到工作表「綜整資訊」");
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+        if (!rows || rows.length < 3) throw new Error("工作表資料不足（至少需要標題兩行 + 一筆資料）");
+
+        // 第一行：組別、日期標題
+        const row0 = rows[0] || [];
+        // 第二行：其他欄位標題
+        const row1 = rows[1] || [];
+
+        // 從第一行尋找「組別」和「日期」的列索引
+        let groupCol = -1, dateCol = -1;
+        for (let i = 0; i < row0.length; i++) {
+            let cellNorm = normalizeCell(row0[i]);
+            if (cellNorm === "組別") groupCol = i;
+            if (cellNorm === "日期") dateCol = i;
+        }
+        if (groupCol === -1 || dateCol === -1) {
+            throw new Error("第一行必須包含「組別」與「日期」欄位（不可合併儲存格）");
+        }
+
+        // 從第二行尋找其他必要欄位的列索引
+        let directCol = -1, trainingCol = -1, overtimeCol = -1;
+        let actualHCol = -1, nonplanCol = -1, supportCol = -1;
+
+        for (let i = 0; i < row1.length; i++) {
+            let cellNorm = normalizeCell(row1[i]);
+            if (cellNorm.includes("直接人力") && cellNorm.includes("(D)")) directCol = i;
+            if (cellNorm.includes("訓練時數") && cellNorm.includes("(E)")) trainingCol = i;
+            if (cellNorm.includes("加班工時") && cellNorm.includes("(T)")) overtimeCol = i;
+            if (cellNorm.includes("實際檢修") && cellNorm.includes("(H)")) actualHCol = i;
+            if (cellNorm.includes("非計畫性") && cellNorm.includes("(I)")) nonplanCol = i;
+            if (cellNorm.includes("支援工時") && cellNorm.includes("(J)")) supportCol = i;
+        }
+
+        // 檢查是否全部找到
+        if (directCol === -1 || trainingCol === -1 || overtimeCol === -1 ||
+            actualHCol === -1 || nonplanCol === -1 || supportCol === -1) {
+            throw new Error(`第二行缺少必要欄位：需要「直接人力上班人數(D)」、「訓練時數不含公出(E)」、「加班工時(T)」、「實際檢修工時(H)」、「非計畫性工時(I)」、「支援工時(J)」`);
+        }
+
+        const records = [];
+        const validGroups = new Set(["TSA", "KHH", "MR"]);
+
+        // 資料從第三行開始（索引2）
+        for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            let group = row[groupCol] ? String(row[groupCol]).trim() : "";
+            if (!validGroups.has(group)) continue;
+
+            let dateRaw = row[dateCol];
+            let date = formatDate(dateRaw);
+
+            const direct = toNumber(row[directCol]);
+            const training = toNumber(row[trainingCol]);
+            const overtime = toNumber(row[overtimeCol]);
+            const actualH = toNumber(row[actualHCol]);
+            const nonplan = toNumber(row[nonplanCol]);
+            const support = toNumber(row[supportCol]);
+
+            const capacityG = direct * 8 + overtime - training;
+            const actualK = actualH + nonplan + support;
+            let utilization = (capacityG > 0) ? actualK / capacityG : null;
+            let suggestedH = 0;
+            if (capacityG > 0) {
+                let targetK = TARGET_UTIL * capacityG;
+                suggestedH = targetK - nonplan - support;
+                if (suggestedH < 0) suggestedH = 0;
+            }
+
+            records.push({
+                group, date,
+                direct, training, overtime, capacityG,
+                actualH, nonplan, support, actualK,
+                utilization, suggestedH
+            });
+        }
+
+        if (records.length === 0) throw new Error("未找到 TSA / KHH / MR 的有效工時資料");
+        return records;
+    }
+
+    function renderTable(group) {
+        const container = document.getElementById("tableArea");
+        if (!allRecords.length) {
+            container.innerHTML = '<div class="empty-message">📭 無資料，請上傳 Excel</div>';
+            return;
+        }
+        const filtered = allRecords.filter(r => r.group === group);
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="empty-message">⚠️ 目前「${group}」組別無工時紀錄</div>`;
+            return;
+        }
+
+        let html = `<table>
+            <thead><tr>
+                <th>組別</th><th>日期</th>
+                <th>直接人力(D)</th><th>訓練時數(E)</th><th>加班工時(T)</th>
+                <th>產能工時(G)<br><span style="font-weight:normal;">D×8+T−E</span></th>
+                <th>實際檢修(H)</th><th>非計畫性(I)</th><th>支援工時(J)</th>
+                <th>實際生產(K)<br><span style="font-weight:normal;">H+I+J</span></th>
+                <th>利用率(L)<br><span style="font-weight:normal;">K÷G</span></th>
+                <th>✨ 建議修改(H)</th>
+            </tr></thead><tbody>`;
+
+        for (let item of filtered) {
+            let rowClass = "";
+            if (item.group === "TSA") rowClass = "bg-tsa";
+            else if (item.group === "KHH") rowClass = "bg-khh";
+            else if (item.group === "MR") rowClass = "bg-mr";
+
+            let utilText = "", utilClass = "";
+            let isLow = false;
+            if (item.utilization === null || item.capacityG === 0) {
+                utilText = "N/A";
+            } else {
+                let percent = (item.utilization * 100).toFixed(1);
+                utilText = `${percent}%`;
+                isLow = item.utilization < TARGET_UTIL;
+                if (isLow) utilClass = "under-target";
+            }
+
+            html += `<tr class="${rowClass}">
+                <td style="text-align:center;">${escapeHtml(item.group)}</td>
+                <td style="text-align:center;">${escapeHtml(item.date)}</td>
+                <td class="data-bg">${item.direct.toFixed(2)}</td>
+                <td class="data-bg">${item.training.toFixed(2)}</td>
+                <td class="data-bg">${item.overtime.toFixed(2)}</td>
+                <td class="data-bg">${item.capacityG.toFixed(2)}</td>
+                <td class="data-bg">${item.actualH.toFixed(2)}</td>
+                <td class="data-bg">${item.nonplan.toFixed(2)}</td>
+                <td class="data-bg">${item.support.toFixed(2)}</td>
+                <td class="data-bg">${item.actualK.toFixed(2)}</td>
+                <td class="util-bg ${utilClass}" style="font-weight:500;">${utilText}</td>
+                <td class="suggest-bg" style="font-weight:500;">${item.suggestedH.toFixed(2)}</td>
+            </tr>`;
+        }
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+    }
+
+    function updateGroupSelect() {
+        let select = document.getElementById("groupSelect");
+        select.innerHTML = "";
+        let groups = Array.from(groupSet).sort();
+        if (groups.length === 0) {
+            select.innerHTML = '<option value="">無資料</option>';
+            return;
+        }
+        groups.forEach(g => {
+            let opt = document.createElement("option");
+            opt.value = g;
+            opt.textContent = `${g} 組`;
+            select.appendChild(opt);
+        });
+        if (groups.length) select.value = groups[0];
+    }
+
+    function handleFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let data = new Uint8Array(e.target.result);
+                let wb = XLSX.read(data, { type: 'array' });
+                let sheet = wb.Sheets["綜整資訊"];
+                if (!sheet) throw new Error("請確認工作表名稱為「綜整資訊」");
+                let records = parseSheet(sheet);
+                allRecords = records;
+                groupSet.clear();
+                records.forEach(r => groupSet.add(r.group));
+                updateGroupSelect();
+                let firstGroup = groupSet.size ? Array.from(groupSet)[0] : "";
+                if (firstGroup) renderTable(firstGroup);
+                else document.getElementById("tableArea").innerHTML = '<div class="empty-message">無組別資料</div>';
+            } catch (err) {
+                console.error(err);
+                alert("解析失敗: " + err.message);
+                document.getElementById("tableArea").innerHTML = `<div class="empty-message">⚠️ 錯誤：${err.message}</div>`;
+                allRecords = [];
+                groupSet.clear();
+                updateGroupSelect();
+            }
+        };
+        reader.onerror = () => alert("檔案讀取失敗");
+        reader.readAsArrayBuffer(file);
+    }
+
+    document.getElementById("excelUpload").addEventListener("change", (e) => {
+        if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+    });
+    document.getElementById("groupSelect").addEventListener("change", (e) => {
+        if (allRecords.length && e.target.value) renderTable(e.target.value);
+    });
+</script>
+</body>
+</html>
