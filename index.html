@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工時監督系統｜支援跨行標題（組別/日期分離）</title>
+    <title>工時監督系統｜獨立控制面板｜自由隱藏欄位</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,21 +22,21 @@
         }
         .header {
             background: linear-gradient(135deg, #1a4a6e, #0e3a57);
-            padding: 24px 32px;
+            padding: 20px 28px;
             color: white;
         }
         .header h1 {
-            font-size: 1.9rem;
+            font-size: 1.7rem;
             font-weight: 600;
             margin-bottom: 6px;
         }
         .toolbar {
             background: #f8fafd;
-            padding: 20px 28px;
+            padding: 16px 28px;
             border-bottom: 1px solid #e3edf3;
             display: flex;
             flex-wrap: wrap;
-            gap: 28px;
+            gap: 24px;
             align-items: flex-end;
         }
         .upload-box, .filter-box {
@@ -44,8 +44,8 @@
             flex-direction: column;
             gap: 6px;
         }
-        .upload-box { flex: 2; min-width: 260px; }
-        .filter-box { flex: 1; min-width: 170px; }
+        .upload-box { flex: 2; min-width: 240px; }
+        .filter-box { flex: 1; min-width: 140px; }
         label {
             font-weight: 700;
             font-size: 0.7rem;
@@ -72,6 +72,43 @@
             cursor: pointer;
             width: 100%;
         }
+        .control-panel {
+            background: #ffffff;
+            padding: 12px 28px;
+            border-bottom: 1px solid #e0ecf5;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+        .control-title {
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #1a4a6e;
+            background: #eef3fc;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .toggle-btn {
+            background: #2e7d64;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .toggle-btn.hidden {
+            background: #b0bec5;
+            color: #2c3e4e;
+        }
+        .toggle-btn:hover {
+            opacity: 0.85;
+            transform: scale(1.02);
+        }
         .info {
             background: #eef4fa;
             padding: 8px 28px;
@@ -82,22 +119,23 @@
             justify-content: space-between;
             border-bottom: 1px solid #e0ecf5;
         }
-        .table-wrapper {
+        .table-container {
             margin: 20px 28px 28px;
             border-radius: 20px;
             border: 1px solid #e3edf2;
             overflow-x: auto;
+            background: white;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.8rem;
-            min-width: 1150px;
+            min-width: 600px;
         }
         th {
             background: #eef3fc;
             color: #1b4d6e;
-            padding: 12px 8px;
+            padding: 10px 6px;
             border: 1px solid #d9e3ec;
             text-align: center;
             white-space: nowrap;
@@ -128,14 +166,17 @@
             color: #5f7f9c;
             border-top: 1px solid #e3edf2;
         }
+        .col-hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
         <div class="header">
-            <h1>✈️ 工時監督系統｜跨行標題專用版</h1>
-            <p>適用「組別/日期」在第一行、「其他欄位」在第二行的特殊格式（如 CSV 範例）</p>
+            <h1>✈️ 工時監督系統｜自由選擇顯示欄位</h1>
+            <p>使用上方控制面板，自由開啟／關閉各項詳細工時欄位</p>
         </div>
         <div class="toolbar">
             <div class="upload-box">
@@ -147,18 +188,32 @@
                 <select id="groupSelect"></select>
             </div>
         </div>
+
+        <!-- 獨立控制面板：每個詳細欄位一個按鈕 -->
+        <div id="controlPanel" class="control-panel" style="display: none;">
+            <span class="control-title">📋 欄位顯示控制 (點擊按鈕切換)</span>
+            <button id="toggleDirect" class="toggle-btn">直接人力(D)</button>
+            <button id="toggleTraining" class="toggle-btn">訓練時數(E)</button>
+            <button id="toggleOvertime" class="toggle-btn">加班工時(T)</button>
+            <button id="toggleCapacityG" class="toggle-btn">產能工時(G)</button>
+            <button id="toggleActualH" class="toggle-btn">實際檢修(H)</button>
+            <button id="toggleNonplan" class="toggle-btn">非計畫性(I)</button>
+            <button id="toggleSupport" class="toggle-btn">支援工時(J)</button>
+            <button id="toggleActualK" class="toggle-btn">實際生產(K)</button>
+        </div>
+
         <div class="info">
             <span>🎯 利用率目標 ≥ 81.3%</span>
-            <span>📐 建議修改檢修工時 = (81.3% × 產能工時G) − 非計畫(I) − 支援(J)</span>
+            <span>📐 建議修改檢修工時 = (81.3% × G) − I − J</span>
             <span>🎨 組別底色：TSA淡綠 / KHH灰藍 / MR暖杏</span>
         </div>
-        <div id="tableArea" class="table-wrapper">
+        <div id="tableArea" class="table-container">
             <div class="empty-message">⬅️ 請上傳包含「綜整資訊」工作表的 Excel 檔案</div>
         </div>
         <div class="footer">
             ※ 產能工時(G) = 直接人力(D)×8 + 加班(T) − 訓練時數(E)<br>
             ※ 實際生產工時(K) = 實際檢修(H) + 非計畫(I) + 支援(J)<br>
-            ※ 若建議工時為負值，表示目前非計畫+支援工時已超過目標，應檢討非計畫工時。
+            ※ 按鈕綠色=顯示，灰色=隱藏。切換組別後會重置所有欄位為顯示。
         </div>
     </div>
 </div>
@@ -167,6 +222,19 @@
     const TARGET_UTIL = 0.813;
     let allRecords = [];
     let groupSet = new Set();
+    let currentGroup = "";
+    
+    // 欄位可見性 (預設全部顯示)
+    let visibility = {
+        direct: true,
+        training: true,
+        overtime: true,
+        capacityG: true,
+        actualH: true,
+        nonplan: true,
+        support: true,
+        actualK: true
+    };
 
     function toNumber(v) {
         if (v === undefined || v === null || v === "") return 0;
@@ -190,25 +258,21 @@
         return s.split(" ")[0];
     }
 
-    // 將儲存格中的換行符號取代為空格
     function normalizeCell(cell) {
         if (cell === undefined || cell === null) return "";
         let str = String(cell).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
         return str;
     }
 
-    // 解析工作表（支援第一行為組別/日期，第二行為其餘欄位標題）
+    // 解析工作表（第一行組別/日期，第二行其餘標題）
     function parseSheet(worksheet) {
         if (!worksheet) throw new Error("找不到工作表「綜整資訊」");
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
         if (!rows || rows.length < 3) throw new Error("工作表資料不足（至少需要標題兩行 + 一筆資料）");
 
-        // 第一行：組別、日期標題
         const row0 = rows[0] || [];
-        // 第二行：其他欄位標題
         const row1 = rows[1] || [];
 
-        // 從第一行尋找「組別」和「日期」的列索引
         let groupCol = -1, dateCol = -1;
         for (let i = 0; i < row0.length; i++) {
             let cellNorm = normalizeCell(row0[i]);
@@ -219,7 +283,6 @@
             throw new Error("第一行必須包含「組別」與「日期」欄位（不可合併儲存格）");
         }
 
-        // 從第二行尋找其他必要欄位的列索引
         let directCol = -1, trainingCol = -1, overtimeCol = -1;
         let actualHCol = -1, nonplanCol = -1, supportCol = -1;
 
@@ -233,7 +296,6 @@
             if (cellNorm.includes("支援工時") && cellNorm.includes("(J)")) supportCol = i;
         }
 
-        // 檢查是否全部找到
         if (directCol === -1 || trainingCol === -1 || overtimeCol === -1 ||
             actualHCol === -1 || nonplanCol === -1 || supportCol === -1) {
             throw new Error(`第二行缺少必要欄位：需要「直接人力上班人數(D)」、「訓練時數不含公出(E)」、「加班工時(T)」、「實際檢修工時(H)」、「非計畫性工時(I)」、「支援工時(J)」`);
@@ -242,11 +304,9 @@
         const records = [];
         const validGroups = new Set(["TSA", "KHH", "MR"]);
 
-        // 資料從第三行開始（索引2）
         for (let i = 2; i < rows.length; i++) {
             const row = rows[i];
             if (!row || row.length === 0) continue;
-
             let group = row[groupCol] ? String(row[groupCol]).trim() : "";
             if (!validGroups.has(group)) continue;
 
@@ -282,6 +342,33 @@
         return records;
     }
 
+    // 更新控制按鈕的外觀（根據可見性）
+    function updateControlButtons() {
+        const btnMap = {
+            direct: 'toggleDirect',
+            training: 'toggleTraining',
+            overtime: 'toggleOvertime',
+            capacityG: 'toggleCapacityG',
+            actualH: 'toggleActualH',
+            nonplan: 'toggleNonplan',
+            support: 'toggleSupport',
+            actualK: 'toggleActualK'
+        };
+        for (let [key, btnId] of Object.entries(btnMap)) {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                if (visibility[key]) {
+                    btn.classList.remove('hidden');
+                    btn.style.background = "#2e7d64";
+                } else {
+                    btn.classList.add('hidden');
+                    btn.style.background = "#b0bec5";
+                }
+            }
+        }
+    }
+
+    // 渲染表格 (根據 visibility 決定欄位是否顯示)
     function renderTable(group) {
         const container = document.getElementById("tableArea");
         if (!allRecords.length) {
@@ -294,17 +381,33 @@
             return;
         }
 
-        let html = `<table>
-            <thead><tr>
-                <th>組別</th><th>日期</th>
-                <th>直接人力(D)</th><th>訓練時數(E)</th><th>加班工時(T)</th>
-                <th>產能工時(G)<br><span style="font-weight:normal;">D×8+T−E</span></th>
-                <th>實際檢修(H)</th><th>非計畫性(I)</th><th>支援工時(J)</th>
-                <th>實際生產(K)<br><span style="font-weight:normal;">H+I+J</span></th>
-                <th>利用率(L)<br><span style="font-weight:normal;">K÷G</span></th>
-                <th>✨ 建議修改(H)</th>
-            </tr></thead><tbody>`;
+        // 定義詳細欄位順序與對應鍵值
+        const detailCols = [
+            { key: 'direct', label: '直接人力(D)' },
+            { key: 'training', label: '訓練時數(E)' },
+            { key: 'overtime', label: '加班工時(T)' },
+            { key: 'capacityG', label: '產能工時(G)<br><span style="font-weight:normal;">D×8+T−E</span>' },
+            { key: 'actualH', label: '實際檢修(H)' },
+            { key: 'nonplan', label: '非計畫性(I)' },
+            { key: 'support', label: '支援工時(J)' },
+            { key: 'actualK', label: '實際生產(K)<br><span style="font-weight:normal;">H+I+J</span>' }
+        ];
 
+        // 建立表格標題
+        let html = `<table><thead><tr>`;
+        html += '<th>組別</th><th>日期</th>';
+        for (let col of detailCols) {
+            if (visibility[col.key]) {
+                html += `<th>${col.label}</th>`;
+            } else {
+                html += `<th class="col-hidden">${col.label}</th>`;
+            }
+        }
+        html += '<th>利用率(L)<br><span style="font-weight:normal;">K÷G</span></th>';
+        html += '<th>✨ 建議修改(H)</th>';
+        html += `</thead><tbody>`;
+
+        // 資料列
         for (let item of filtered) {
             let rowClass = "";
             if (item.group === "TSA") rowClass = "bg-tsa";
@@ -312,32 +415,43 @@
             else if (item.group === "MR") rowClass = "bg-mr";
 
             let utilText = "", utilClass = "";
-            let isLow = false;
             if (item.utilization === null || item.capacityG === 0) {
                 utilText = "N/A";
             } else {
-                let percent = (item.utilization * 100).toFixed(1);
+                let percent = (item.utilization * 100).toFixed(2);
                 utilText = `${percent}%`;
-                isLow = item.utilization < TARGET_UTIL;
-                if (isLow) utilClass = "under-target";
+                if (item.utilization < TARGET_UTIL) utilClass = "under-target";
             }
 
-            html += `<tr class="${rowClass}">
-                <td style="text-align:center;">${escapeHtml(item.group)}</td>
-                <td style="text-align:center;">${escapeHtml(item.date)}</td>
-                <td class="data-bg">${item.direct.toFixed(2)}</td>
-                <td class="data-bg">${item.training.toFixed(2)}</td>
-                <td class="data-bg">${item.overtime.toFixed(2)}</td>
-                <td class="data-bg">${item.capacityG.toFixed(2)}</td>
-                <td class="data-bg">${item.actualH.toFixed(2)}</td>
-                <td class="data-bg">${item.nonplan.toFixed(2)}</td>
-                <td class="data-bg">${item.support.toFixed(2)}</td>
-                <td class="data-bg">${item.actualK.toFixed(2)}</td>
-                <td class="util-bg ${utilClass}" style="font-weight:500;">${utilText}</td>
-                <td class="suggest-bg" style="font-weight:500;">${item.suggestedH.toFixed(2)}</td>
-            </tr>`;
+            html += `<tr class="${rowClass}">`;
+            html += `<td style="text-align:center;">${escapeHtml(item.group)}</td>`;
+            html += `<td style="text-align:center;">${escapeHtml(item.date)}</td>`;
+
+            for (let col of detailCols) {
+                let value = "";
+                switch (col.key) {
+                    case 'direct': value = item.direct.toFixed(2); break;
+                    case 'training': value = item.training.toFixed(2); break;
+                    case 'overtime': value = item.overtime.toFixed(2); break;
+                    case 'capacityG': value = item.capacityG.toFixed(2); break;
+                    case 'actualH': value = item.actualH.toFixed(2); break;
+                    case 'nonplan': value = item.nonplan.toFixed(2); break;
+                    case 'support': value = item.support.toFixed(2); break;
+                    case 'actualK': value = item.actualK.toFixed(2); break;
+                }
+                if (visibility[col.key]) {
+                    html += `<td class="data-bg">${value}</td>`;
+                } else {
+                    html += `<td class="data-bg col-hidden">${value}</td>`;
+                }
+            }
+
+            html += `<td class="util-bg ${utilClass}" style="font-weight:500;">${utilText}</td>`;
+            html += `<td class="suggest-bg" style="font-weight:500;">${item.suggestedH.toFixed(2)}</td>`;
+            html += `</tr>`;
         }
-        html += `</tbody></table>`;
+
+        html += `</tbody>去表格`;
         container.innerHTML = html;
     }
 
@@ -360,7 +474,35 @@
             opt.textContent = `${g} 組`;
             select.appendChild(opt);
         });
-        if (groups.length) select.value = groups[0];
+        if (groups.includes("KHH")) {
+            select.value = "KHH";
+            currentGroup = "KHH";
+        } else {
+            select.value = groups[0];
+            currentGroup = groups[0];
+        }
+    }
+
+    function resetVisibility() {
+        visibility = {
+            direct: true,
+            training: true,
+            overtime: true,
+            capacityG: true,
+            actualH: true,
+            nonplan: true,
+            support: true,
+            actualK: true
+        };
+        updateControlButtons();
+        if (currentGroup && allRecords.length) renderTable(currentGroup);
+    }
+
+    // 切換單一欄位
+    function toggleField(fieldKey) {
+        visibility[fieldKey] = !visibility[fieldKey];
+        updateControlButtons();
+        if (currentGroup && allRecords.length) renderTable(currentGroup);
     }
 
     function handleFile(file) {
@@ -376,8 +518,10 @@
                 groupSet.clear();
                 records.forEach(r => groupSet.add(r.group));
                 updateGroupSelect();
-                let firstGroup = groupSet.size ? Array.from(groupSet)[0] : "";
-                if (firstGroup) renderTable(firstGroup);
+                resetVisibility();
+                // 顯示控制面板
+                document.getElementById("controlPanel").style.display = "flex";
+                if (currentGroup) renderTable(currentGroup);
                 else document.getElementById("tableArea").innerHTML = '<div class="empty-message">無組別資料</div>';
             } catch (err) {
                 console.error(err);
@@ -386,18 +530,37 @@
                 allRecords = [];
                 groupSet.clear();
                 updateGroupSelect();
+                document.getElementById("controlPanel").style.display = "none";
             }
         };
         reader.onerror = () => alert("檔案讀取失敗");
         reader.readAsArrayBuffer(file);
     }
 
+    // 綁定控制按鈕事件
+    function bindControlEvents() {
+        document.getElementById("toggleDirect").addEventListener("click", () => toggleField("direct"));
+        document.getElementById("toggleTraining").addEventListener("click", () => toggleField("training"));
+        document.getElementById("toggleOvertime").addEventListener("click", () => toggleField("overtime"));
+        document.getElementById("toggleCapacityG").addEventListener("click", () => toggleField("capacityG"));
+        document.getElementById("toggleActualH").addEventListener("click", () => toggleField("actualH"));
+        document.getElementById("toggleNonplan").addEventListener("click", () => toggleField("nonplan"));
+        document.getElementById("toggleSupport").addEventListener("click", () => toggleField("support"));
+        document.getElementById("toggleActualK").addEventListener("click", () => toggleField("actualK"));
+    }
+
     document.getElementById("excelUpload").addEventListener("change", (e) => {
         if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
     });
     document.getElementById("groupSelect").addEventListener("change", (e) => {
-        if (allRecords.length && e.target.value) renderTable(e.target.value);
+        if (allRecords.length && e.target.value) {
+            currentGroup = e.target.value;
+            resetVisibility();   // 切換組別時重置所有欄位為顯示
+            renderTable(currentGroup);
+        }
     });
+
+    bindControlEvents();
 </script>
 </body>
 </html>
