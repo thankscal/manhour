@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工時監督系統｜獨立控制面板｜自由隱藏欄位</title>
+    <title>工時監督系統｜85%目標｜欠缺工時｜可篩選未達標日</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,6 +80,17 @@
             flex-wrap: wrap;
             align-items: center;
             gap: 12px;
+            justify-content: space-between;
+        }
+        .control-left {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+        .control-right {
+            display: flex;
+            gap: 12px;
         }
         .control-title {
             font-weight: 700;
@@ -89,7 +100,7 @@
             padding: 4px 12px;
             border-radius: 20px;
         }
-        .toggle-btn {
+        .toggle-btn, .filter-btn {
             background: #2e7d64;
             color: white;
             border: none;
@@ -105,7 +116,10 @@
             background: #b0bec5;
             color: #2c3e4e;
         }
-        .toggle-btn:hover {
+        .filter-btn {
+            background: #2c6e9e;
+        }
+        .filter-btn:hover, .toggle-btn:hover {
             opacity: 0.85;
             transform: scale(1.02);
         }
@@ -119,6 +133,28 @@
             justify-content: space-between;
             border-bottom: 1px solid #e0ecf5;
         }
+        .stats-area {
+            background: #fff9e0;
+            padding: 8px 28px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #b45f06;
+            border-bottom: 1px solid #e0ecf5;
+            display: none;
+        }
+        .stats-area.show {
+            display: block;
+        }
+        .encouragement {
+            text-align: center;
+            padding: 40px 20px;
+            background: #e8f5e9;
+            border-radius: 24px;
+            margin: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2e7d64;
+        }
         .table-container {
             margin: 20px 28px 28px;
             border-radius: 20px;
@@ -130,7 +166,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 0.8rem;
-            min-width: 600px;
+            min-width: 900px;
         }
         th {
             background: #eef3fc;
@@ -148,13 +184,21 @@
         }
         td:first-child, th:first-child { text-align: center; }
         td:nth-child(2) { text-align: center; }
-        .bg-tsa { background-color: #D7E7DD; }
-        .bg-khh { background-color: #BFC4D7; }
-        .bg-mr  { background-color: #EFE6E1; }
+
+        .bg-tsa td:first-child, .bg-tsa td:nth-child(2) { background-color: #D7E7DD; }
+        .bg-khh td:first-child, .bg-khh td:nth-child(2) { background-color: #BFC4D7; }
+        .bg-mr td:first-child, .bg-mr td:nth-child(2) { background-color: #EFE6E1; }
+
         .data-bg { background-color: #F8CBAD; }
         .util-bg { background-color: #E2EFDA; }
         .suggest-bg { background-color: #FFF3CD; }
+
+        .bg-low-util td {
+            background-color: #ff9999 !important;
+        }
+
         .under-target { color: #d32f2f !important; font-weight: 800; }
+        .positive-value { color: #2e7d64; font-weight: 500; }
         .empty-message {
             text-align: center;
             padding: 58px 24px;
@@ -175,8 +219,8 @@
 <div class="container">
     <div class="card">
         <div class="header">
-            <h1>✈️ 工時監督系統｜自由選擇顯示欄位</h1>
-            <p>使用上方控制面板，自由開啟／關閉各項詳細工時欄位</p>
+            <h1>✈️ 工時監督系統｜目標85%｜欠缺工時 (實際−建議)</h1>
+            <p>訓練時數(E)僅供計算不顯示｜低於85%整列紅底｜可篩選未達標日並統計天數</p>
         </div>
         <div class="toolbar">
             <div class="upload-box">
@@ -189,45 +233,52 @@
             </div>
         </div>
 
-        <!-- 獨立控制面板：每個詳細欄位一個按鈕 -->
         <div id="controlPanel" class="control-panel" style="display: none;">
-            <span class="control-title">📋 欄位顯示控制 (點擊按鈕切換)</span>
-            <button id="toggleDirect" class="toggle-btn">直接人力(D)</button>
-            <button id="toggleTraining" class="toggle-btn">訓練時數(E)</button>
-            <button id="toggleOvertime" class="toggle-btn">加班工時(T)</button>
-            <button id="toggleCapacityG" class="toggle-btn">產能工時(G)</button>
-            <button id="toggleActualH" class="toggle-btn">實際檢修(H)</button>
-            <button id="toggleNonplan" class="toggle-btn">非計畫性(I)</button>
-            <button id="toggleSupport" class="toggle-btn">支援工時(J)</button>
-            <button id="toggleActualK" class="toggle-btn">實際生產(K)</button>
+            <div class="control-left">
+                <span class="control-title">📋 欄位顯示控制</span>
+                <button id="toggleDirect" class="toggle-btn">直接人力(D)</button>
+                <button id="toggleOvertime" class="toggle-btn">加班工時(T)</button>
+                <button id="toggleCapacityG" class="toggle-btn">產能工時(G)</button>
+                <button id="toggleActualH" class="toggle-btn">實際檢修(H)</button>
+                <button id="toggleNonplan" class="toggle-btn">非計畫性(I)</button>
+                <button id="toggleSupport" class="toggle-btn">支援工時(J)</button>
+                <button id="toggleActualK" class="toggle-btn">實際生產(K)</button>
+            </div>
+            <div class="control-right">
+                <button id="filterLowUtilBtn" class="filter-btn">🔍 直接顯示需要改正的工時</button>
+                <button id="showAllBtn" class="filter-btn">📋 顯示全部內容</button>
+            </div>
         </div>
 
+        <!-- 統計顯示區 -->
+        <div id="statsArea" class="stats-area"></div>
+
         <div class="info">
-            <span>🎯 利用率目標 ≥ 81.3%</span>
-            <span>📐 建議修改檢修工時 = (81.3% × G) − I − J</span>
-            <span>🎨 組別底色：TSA淡綠 / KHH灰藍 / MR暖杏</span>
+            <span>🎯 利用率目標 ≥ 85% (低於85%整列變為亮紅色)</span>
+            <span>📐 建議修改(H) = (85% × G) − I − J</span>
+            <span>⚠️ 欠缺工時 = 實際檢修(H) − 建議修改(H) (負數表示不足)</span>
         </div>
         <div id="tableArea" class="table-container">
             <div class="empty-message">⬅️ 請上傳包含「綜整資訊」工作表的 Excel 檔案</div>
         </div>
         <div class="footer">
-            ※ 產能工時(G) = 直接人力(D)×8 + 加班(T) − 訓練時數(E)<br>
-            ※ 實際生產工時(K) = 實際檢修(H) + 非計畫(I) + 支援(J)<br>
-            ※ 按鈕綠色=顯示，灰色=隱藏。切換組別後會重置所有欄位為顯示。
+            ※ 產能工時(G) = 直接人力(D)×8 + 加班(T) − 訓練時數(E) (訓練時數不顯示)<br>
+            ※ 實際生產(K) = 實際檢修(H) + 非計畫(I) + 支援(J)<br>
+            ※ 可點擊「直接顯示需要改正的工時」只顯示未達85%的日期，並統計天數；無資料時顯示鼓勵訊息。
         </div>
     </div>
 </div>
 
 <script>
-    const TARGET_UTIL = 0.813;
+    const TARGET_UTIL = 0.85;
     let allRecords = [];
+    let filteredRecords = [];
     let groupSet = new Set();
     let currentGroup = "";
+    let onlyLowUtil = false;
     
-    // 欄位可見性 (預設全部顯示)
     let visibility = {
         direct: true,
-        training: true,
         overtime: true,
         capacityG: true,
         actualH: true,
@@ -264,11 +315,10 @@
         return str;
     }
 
-    // 解析工作表（第一行組別/日期，第二行其餘標題）
     function parseSheet(worksheet) {
         if (!worksheet) throw new Error("找不到工作表「綜整資訊」");
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        if (!rows || rows.length < 3) throw new Error("工作表資料不足（至少需要標題兩行 + 一筆資料）");
+        if (!rows || rows.length < 3) throw new Error("工作表資料不足");
 
         const row0 = rows[0] || [];
         const row1 = rows[1] || [];
@@ -280,7 +330,7 @@
             if (cellNorm === "日期") dateCol = i;
         }
         if (groupCol === -1 || dateCol === -1) {
-            throw new Error("第一行必須包含「組別」與「日期」欄位（不可合併儲存格）");
+            throw new Error("第一行必須包含「組別」與「日期」欄位");
         }
 
         let directCol = -1, trainingCol = -1, overtimeCol = -1;
@@ -298,7 +348,7 @@
 
         if (directCol === -1 || trainingCol === -1 || overtimeCol === -1 ||
             actualHCol === -1 || nonplanCol === -1 || supportCol === -1) {
-            throw new Error(`第二行缺少必要欄位：需要「直接人力上班人數(D)」、「訓練時數不含公出(E)」、「加班工時(T)」、「實際檢修工時(H)」、「非計畫性工時(I)」、「支援工時(J)」`);
+            throw new Error(`第二行缺少必要欄位`);
         }
 
         const records = [];
@@ -310,8 +360,7 @@
             let group = row[groupCol] ? String(row[groupCol]).trim() : "";
             if (!validGroups.has(group)) continue;
 
-            let dateRaw = row[dateCol];
-            let date = formatDate(dateRaw);
+            let date = formatDate(row[dateCol]);
 
             const direct = toNumber(row[directCol]);
             const training = toNumber(row[trainingCol]);
@@ -329,30 +378,22 @@
                 suggestedH = targetK - nonplan - support;
                 if (suggestedH < 0) suggestedH = 0;
             }
+            let missingHours = actualH - suggestedH;
 
             records.push({
-                group, date,
-                direct, training, overtime, capacityG,
+                group, date, direct, overtime, capacityG,
                 actualH, nonplan, support, actualK,
-                utilization, suggestedH
+                utilization, suggestedH, missingHours
             });
         }
-
-        if (records.length === 0) throw new Error("未找到 TSA / KHH / MR 的有效工時資料");
+        if (records.length === 0) throw new Error("未找到 TSA / KHH / MR 的有效資料");
         return records;
     }
 
-    // 更新控制按鈕的外觀（根據可見性）
     function updateControlButtons() {
         const btnMap = {
-            direct: 'toggleDirect',
-            training: 'toggleTraining',
-            overtime: 'toggleOvertime',
-            capacityG: 'toggleCapacityG',
-            actualH: 'toggleActualH',
-            nonplan: 'toggleNonplan',
-            support: 'toggleSupport',
-            actualK: 'toggleActualK'
+            direct: 'toggleDirect', overtime: 'toggleOvertime', capacityG: 'toggleCapacityG',
+            actualH: 'toggleActualH', nonplan: 'toggleNonplan', support: 'toggleSupport', actualK: 'toggleActualK'
         };
         for (let [key, btnId] of Object.entries(btnMap)) {
             const btn = document.getElementById(btnId);
@@ -368,23 +409,55 @@
         }
     }
 
-    // 渲染表格 (根據 visibility 決定欄位是否顯示)
-    function renderTable(group) {
+    function updateFilteredRecords() {
+        if (!allRecords.length) return;
+        let groupRecords = allRecords.filter(r => r.group === currentGroup);
+        if (onlyLowUtil) {
+            filteredRecords = groupRecords.filter(r => r.utilization !== null && r.utilization < TARGET_UTIL);
+        } else {
+            filteredRecords = [...groupRecords];
+        }
+        renderTable();
+    }
+
+    function renderTable() {
         const container = document.getElementById("tableArea");
+        const statsDiv = document.getElementById("statsArea");
+        
         if (!allRecords.length) {
             container.innerHTML = '<div class="empty-message">📭 無資料，請上傳 Excel</div>';
-            return;
-        }
-        const filtered = allRecords.filter(r => r.group === group);
-        if (filtered.length === 0) {
-            container.innerHTML = `<div class="empty-message">⚠️ 目前「${group}」組別無工時紀錄</div>`;
+            statsDiv.classList.remove("show");
             return;
         }
 
-        // 定義詳細欄位順序與對應鍵值
+        // 處理統計顯示與鼓勵訊息
+        if (onlyLowUtil) {
+            const lowCount = filteredRecords.length;
+            if (lowCount === 0) {
+                // 無未達標資料：顯示鼓勵訊息，不顯示表格
+                statsDiv.classList.remove("show");
+                container.innerHTML = `
+                    <div class="encouragement">
+                        🎉 同仁認真工作，工作紀律良好，都有乖乖上工 🥳🥳🥳🥳🥳🥳🥳
+                    </div>
+                `;
+                return;
+            } else {
+                // 有未達標資料：顯示統計訊息和表格
+                statsDiv.innerHTML = `📊 共有 <strong>${lowCount}</strong> 天工時未達 85% 目標，需要改正。`;
+                statsDiv.classList.add("show");
+            }
+        } else {
+            statsDiv.classList.remove("show");
+        }
+
+        if (filteredRecords.length === 0 && !onlyLowUtil) {
+            container.innerHTML = `<div class="empty-message">⚠️ 目前「${currentGroup}」組別無資料</div>`;
+            return;
+        }
+
         const detailCols = [
             { key: 'direct', label: '直接人力(D)' },
-            { key: 'training', label: '訓練時數(E)' },
             { key: 'overtime', label: '加班工時(T)' },
             { key: 'capacityG', label: '產能工時(G)<br><span style="font-weight:normal;">D×8+T−E</span>' },
             { key: 'actualH', label: '實際檢修(H)' },
@@ -393,8 +466,7 @@
             { key: 'actualK', label: '實際生產(K)<br><span style="font-weight:normal;">H+I+J</span>' }
         ];
 
-        // 建立表格標題
-        let html = `<table><thead><tr>`;
+        let html = `<table class="data-table"><thead><tr>`;
         html += '<th>組別</th><th>日期</th>';
         for (let col of detailCols) {
             if (visibility[col.key]) {
@@ -405,14 +477,19 @@
         }
         html += '<th>利用率(L)<br><span style="font-weight:normal;">K÷G</span></th>';
         html += '<th>✨ 建議修改(H)</th>';
-        html += `</thead><tbody>`;
+        html += '<th>⚠️ 欠缺工時<br><span style="font-weight:normal;">實際−建議</span></th>';
+        html += `<table></thead><tbody>`;
 
-        // 資料列
-        for (let item of filtered) {
+        for (let item of filteredRecords) {
+            const isLow = (item.utilization !== null && item.utilization < TARGET_UTIL);
             let rowClass = "";
-            if (item.group === "TSA") rowClass = "bg-tsa";
-            else if (item.group === "KHH") rowClass = "bg-khh";
-            else if (item.group === "MR") rowClass = "bg-mr";
+            if (isLow) {
+                rowClass = "bg-low-util";
+            } else {
+                if (item.group === "TSA") rowClass = "bg-tsa";
+                else if (item.group === "KHH") rowClass = "bg-khh";
+                else if (item.group === "MR") rowClass = "bg-mr";
+            }
 
             let utilText = "", utilClass = "";
             if (item.utilization === null || item.capacityG === 0) {
@@ -420,8 +497,13 @@
             } else {
                 let percent = (item.utilization * 100).toFixed(2);
                 utilText = `${percent}%`;
-                if (item.utilization < TARGET_UTIL) utilClass = "under-target";
+                if (isLow) utilClass = "under-target";
             }
+
+            let missingClass = "";
+            let missingDisplay = item.missingHours.toFixed(2);
+            if (item.missingHours < 0) missingClass = "under-target";
+            else if (item.missingHours > 0) missingClass = "positive-value";
 
             html += `<tr class="${rowClass}">`;
             html += `<td style="text-align:center;">${escapeHtml(item.group)}</td>`;
@@ -431,7 +513,6 @@
                 let value = "";
                 switch (col.key) {
                     case 'direct': value = item.direct.toFixed(2); break;
-                    case 'training': value = item.training.toFixed(2); break;
                     case 'overtime': value = item.overtime.toFixed(2); break;
                     case 'capacityG': value = item.capacityG.toFixed(2); break;
                     case 'actualH': value = item.actualH.toFixed(2); break;
@@ -448,10 +529,10 @@
 
             html += `<td class="util-bg ${utilClass}" style="font-weight:500;">${utilText}</td>`;
             html += `<td class="suggest-bg" style="font-weight:500;">${item.suggestedH.toFixed(2)}</td>`;
+            html += `<td class="suggest-bg ${missingClass}" style="font-weight:500;">${missingDisplay}</td>`;
             html += `</tr>`;
         }
-
-        html += `</tbody>去表格`;
+        html += `</tbody>${'</table>'}`;
         container.innerHTML = html;
     }
 
@@ -484,25 +565,22 @@
     }
 
     function resetVisibility() {
-        visibility = {
-            direct: true,
-            training: true,
-            overtime: true,
-            capacityG: true,
-            actualH: true,
-            nonplan: true,
-            support: true,
-            actualK: true
-        };
+        visibility = { direct: true, overtime: true, capacityG: true, actualH: true, nonplan: true, support: true, actualK: true };
         updateControlButtons();
-        if (currentGroup && allRecords.length) renderTable(currentGroup);
     }
 
-    // 切換單一欄位
     function toggleField(fieldKey) {
         visibility[fieldKey] = !visibility[fieldKey];
         updateControlButtons();
-        if (currentGroup && allRecords.length) renderTable(currentGroup);
+        if (currentGroup && allRecords.length) {
+            updateFilteredRecords();
+        }
+    }
+
+    function applyGroupChange() {
+        if (!allRecords.length) return;
+        onlyLowUtil = false;
+        updateFilteredRecords();
     }
 
     function handleFile(file) {
@@ -519,48 +597,58 @@
                 records.forEach(r => groupSet.add(r.group));
                 updateGroupSelect();
                 resetVisibility();
-                // 顯示控制面板
+                onlyLowUtil = false;
                 document.getElementById("controlPanel").style.display = "flex";
-                if (currentGroup) renderTable(currentGroup);
-                else document.getElementById("tableArea").innerHTML = '<div class="empty-message">無組別資料</div>';
+                document.getElementById("statsArea").classList.remove("show");
+                updateFilteredRecords();
             } catch (err) {
-                console.error(err);
                 alert("解析失敗: " + err.message);
                 document.getElementById("tableArea").innerHTML = `<div class="empty-message">⚠️ 錯誤：${err.message}</div>`;
                 allRecords = [];
                 groupSet.clear();
                 updateGroupSelect();
                 document.getElementById("controlPanel").style.display = "none";
+                document.getElementById("statsArea").classList.remove("show");
             }
         };
         reader.onerror = () => alert("檔案讀取失敗");
         reader.readAsArrayBuffer(file);
     }
 
-    // 綁定控制按鈕事件
-    function bindControlEvents() {
+    function showOnlyLowUtil() {
+        if (!allRecords.length) return;
+        onlyLowUtil = true;
+        updateFilteredRecords();
+    }
+
+    function showAll() {
+        if (!allRecords.length) return;
+        onlyLowUtil = false;
+        updateFilteredRecords();
+    }
+
+    function bindEvents() {
+        document.getElementById("excelUpload").addEventListener("change", (e) => {
+            if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+        });
+        document.getElementById("groupSelect").addEventListener("change", (e) => {
+            if (allRecords.length && e.target.value) {
+                currentGroup = e.target.value;
+                applyGroupChange();
+            }
+        });
         document.getElementById("toggleDirect").addEventListener("click", () => toggleField("direct"));
-        document.getElementById("toggleTraining").addEventListener("click", () => toggleField("training"));
         document.getElementById("toggleOvertime").addEventListener("click", () => toggleField("overtime"));
         document.getElementById("toggleCapacityG").addEventListener("click", () => toggleField("capacityG"));
         document.getElementById("toggleActualH").addEventListener("click", () => toggleField("actualH"));
         document.getElementById("toggleNonplan").addEventListener("click", () => toggleField("nonplan"));
         document.getElementById("toggleSupport").addEventListener("click", () => toggleField("support"));
         document.getElementById("toggleActualK").addEventListener("click", () => toggleField("actualK"));
+        document.getElementById("filterLowUtilBtn").addEventListener("click", showOnlyLowUtil);
+        document.getElementById("showAllBtn").addEventListener("click", showAll);
     }
 
-    document.getElementById("excelUpload").addEventListener("change", (e) => {
-        if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
-    });
-    document.getElementById("groupSelect").addEventListener("change", (e) => {
-        if (allRecords.length && e.target.value) {
-            currentGroup = e.target.value;
-            resetVisibility();   // 切換組別時重置所有欄位為顯示
-            renderTable(currentGroup);
-        }
-    });
-
-    bindControlEvents();
+    bindEvents();
 </script>
 </body>
 </html>
