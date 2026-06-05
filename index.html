@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工時監督系統｜85%目標｜欠缺工時｜可篩選未達標日</title>
+    <title>工時監督系統｜85%目標｜支援全部組別</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -219,8 +219,8 @@
 <div class="container">
     <div class="card">
         <div class="header">
-            <h1>✈️ 工時監督系統｜目標85%｜欠缺工時 (實際−建議)</h1>
-            <p>訓練時數(E)僅供計算不顯示｜低於85%整列紅底｜可篩選未達標日並統計天數</p>
+            <h1>✈️ 工時監督系統｜目標85%｜支援全部組別</h1>
+            <p>可選擇單一組別或全部組別，低於85%整列紅底，自動統計未達標天數</p>
         </div>
         <div class="toolbar">
             <div class="upload-box">
@@ -250,7 +250,6 @@
             </div>
         </div>
 
-        <!-- 統計顯示區 -->
         <div id="statsArea" class="stats-area"></div>
 
         <div class="info">
@@ -274,7 +273,7 @@
     let allRecords = [];
     let filteredRecords = [];
     let groupSet = new Set();
-    let currentGroup = "";
+    let currentGroup = "";   // 空字串代表「全部組別」，否則為特定組別名稱
     let onlyLowUtil = false;
     
     let visibility = {
@@ -409,13 +408,20 @@
         }
     }
 
+    // 根據目前選擇的組別與過濾模式，更新 filteredRecords
     function updateFilteredRecords() {
         if (!allRecords.length) return;
-        let groupRecords = allRecords.filter(r => r.group === currentGroup);
-        if (onlyLowUtil) {
-            filteredRecords = groupRecords.filter(r => r.utilization !== null && r.utilization < TARGET_UTIL);
+        let baseRecords;
+        if (currentGroup === "") {
+            // 全部組別
+            baseRecords = [...allRecords];
         } else {
-            filteredRecords = [...groupRecords];
+            baseRecords = allRecords.filter(r => r.group === currentGroup);
+        }
+        if (onlyLowUtil) {
+            filteredRecords = baseRecords.filter(r => r.utilization !== null && r.utilization < TARGET_UTIL);
+        } else {
+            filteredRecords = baseRecords;
         }
         renderTable();
     }
@@ -434,7 +440,6 @@
         if (onlyLowUtil) {
             const lowCount = filteredRecords.length;
             if (lowCount === 0) {
-                // 無未達標資料：顯示鼓勵訊息，不顯示表格
                 statsDiv.classList.remove("show");
                 container.innerHTML = `
                     <div class="encouragement">
@@ -443,8 +448,8 @@
                 `;
                 return;
             } else {
-                // 有未達標資料：顯示統計訊息和表格
-                statsDiv.innerHTML = `📊 共有 <strong>${lowCount}</strong> 天工時未達 85% 目標，需要改正。`;
+                const groupLabel = currentGroup === "" ? "全部組別" : `${currentGroup} 組`;
+                statsDiv.innerHTML = `📊 ${groupLabel} 中共有 <strong>${lowCount}</strong> 天工時未達 85% 目標，需要改正。`;
                 statsDiv.classList.add("show");
             }
         } else {
@@ -452,7 +457,7 @@
         }
 
         if (filteredRecords.length === 0 && !onlyLowUtil) {
-            container.innerHTML = `<div class="empty-message">⚠️ 目前「${currentGroup}」組別無資料</div>`;
+            container.innerHTML = `<div class="empty-message">⚠️ 目前所選範圍無資料</div>`;
             return;
         }
 
@@ -478,7 +483,7 @@
         html += '<th>利用率(L)<br><span style="font-weight:normal;">K÷G</span></th>';
         html += '<th>✨ 建議修改(H)</th>';
         html += '<th>⚠️ 欠缺工時<br><span style="font-weight:normal;">實際−建議</span></th>';
-        html += `<table></thead><tbody>`;
+        html += `</tr></thead><tbody>`;
 
         for (let item of filteredRecords) {
             const isLow = (item.utilization !== null && item.utilization < TARGET_UTIL);
@@ -532,7 +537,7 @@
             html += `<td class="suggest-bg ${missingClass}" style="font-weight:500;">${missingDisplay}</td>`;
             html += `</tr>`;
         }
-        html += `</tbody>${'</table>'}`;
+        html += `</tbody></table>`;
         container.innerHTML = html;
     }
 
@@ -544,24 +549,22 @@
     function updateGroupSelect() {
         let select = document.getElementById("groupSelect");
         select.innerHTML = "";
+        // 加入「全部組別」選項
+        let allOption = document.createElement("option");
+        allOption.value = "";
+        allOption.textContent = "📌 全部組別";
+        select.appendChild(allOption);
+        // 加入各組別
         let groups = Array.from(groupSet).sort();
-        if (groups.length === 0) {
-            select.innerHTML = '<option value="">無資料</option>';
-            return;
-        }
         groups.forEach(g => {
             let opt = document.createElement("option");
             opt.value = g;
             opt.textContent = `${g} 組`;
             select.appendChild(opt);
         });
-        if (groups.includes("KHH")) {
-            select.value = "KHH";
-            currentGroup = "KHH";
-        } else {
-            select.value = groups[0];
-            currentGroup = groups[0];
-        }
+        // 預設選取「全部組別」
+        select.value = "";
+        currentGroup = "";
     }
 
     function resetVisibility() {
@@ -572,14 +575,14 @@
     function toggleField(fieldKey) {
         visibility[fieldKey] = !visibility[fieldKey];
         updateControlButtons();
-        if (currentGroup && allRecords.length) {
+        if (allRecords.length) {
             updateFilteredRecords();
         }
     }
 
     function applyGroupChange() {
         if (!allRecords.length) return;
-        onlyLowUtil = false;
+        onlyLowUtil = false;   // 切換組別時重置過濾模式
         updateFilteredRecords();
     }
 
@@ -595,12 +598,12 @@
                 allRecords = records;
                 groupSet.clear();
                 records.forEach(r => groupSet.add(r.group));
-                updateGroupSelect();
+                updateGroupSelect();      // 建立下拉選單並預設全部組別
                 resetVisibility();
                 onlyLowUtil = false;
                 document.getElementById("controlPanel").style.display = "flex";
                 document.getElementById("statsArea").classList.remove("show");
-                updateFilteredRecords();
+                updateFilteredRecords();   // 顯示全部組別資料
             } catch (err) {
                 alert("解析失敗: " + err.message);
                 document.getElementById("tableArea").innerHTML = `<div class="empty-message">⚠️ 錯誤：${err.message}</div>`;
@@ -632,8 +635,8 @@
             if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
         });
         document.getElementById("groupSelect").addEventListener("change", (e) => {
-            if (allRecords.length && e.target.value) {
-                currentGroup = e.target.value;
+            if (allRecords.length) {
+                currentGroup = e.target.value;   // 空字串代表全部組別
                 applyGroupChange();
             }
         });
